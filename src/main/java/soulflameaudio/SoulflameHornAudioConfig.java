@@ -50,14 +50,6 @@ public interface SoulflameHornAudioConfig extends Config
 	)
 	String partySection = "party";
 
-	@ConfigSection(
-		name = "Diagnostics",
-		description = "Verbose logging, only useful when investigating what the game exposes.",
-		position = 5,
-		closedByDefault = true
-	)
-	String diagnosticsSection = "diagnostics";
-
 	// General
 
 	@ConfigItem(
@@ -182,6 +174,7 @@ public interface SoulflameHornAudioConfig extends Config
 	{
 		return "";
 	}
+
 	@ConfigItem(
 		keyName = "appliedFile",
 		name = "Player Received Spec File",
@@ -416,17 +409,4 @@ public interface SoulflameHornAudioConfig extends Config
 		return false;
 	}
 
-	// Diagnostics
-
-	@ConfigItem(
-		keyName = "logHornEvents",
-		name = "Log Horn Events",
-		description = "Write every horn related chat message, animation and spot animation near you to the client log.",
-		section = diagnosticsSection,
-		position = 0
-	)
-	default boolean logHornEvents()
-	{
-		return false;
-	}
 }

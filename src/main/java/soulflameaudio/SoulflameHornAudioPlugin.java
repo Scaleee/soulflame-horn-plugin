@@ -5,17 +5,13 @@ import java.io.File;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.ActorSpotAnim;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Hitsplat;
 import net.runelite.api.Player;
-import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
-import net.runelite.api.events.GraphicChanged;
 import net.runelite.api.events.HitsplatApplied;
-import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.RuneLite;
@@ -62,9 +58,6 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	/** A game tick is 600ms, used to turn the tick counter into seconds for display. */
 	private static final int MILLIS_PER_TICK = 600;
-
-	/** Long enough to cover a full buff window plus the hit that spends it. */
-	private static final int DIAGNOSTIC_WINDOW_TICKS = 15;
 
 	// Compared against the lowercased game message. The ally variant is prefixed with their name.
 	private static final String SELF_CAST = "you encourage nearby allies";
@@ -114,9 +107,6 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	/** Who gave us the current buff, or null when we blew the horn ourselves. */
 	private String enticeCaster;
-
-	/** Ticks left in the diagnostic capture window opened by nearby horn activity. */
-	private int diagnosticTicksRemaining;
 
 	@Provides
 	SoulflameHornAudioConfig provideConfig(ConfigManager configManager)
@@ -168,11 +158,6 @@ public class SoulflameHornAudioPlugin extends Plugin
 		return (enticeTicksRemaining * MILLIS_PER_TICK + 999) / 1000;
 	}
 
-	int getEnticeTicksRemaining()
-	{
-		return enticeTicksRemaining;
-	}
-
 	/** The bare number for the infobox, in whichever unit is configured. */
 	String getEnticeCountdown()
 	{
@@ -180,7 +165,6 @@ public class SoulflameHornAudioPlugin extends Plugin
 			? enticeTicksRemaining
 			: getEnticeSecondsRemaining());
 	}
-
 
 	int getHornRadius()
 	{
@@ -192,7 +176,6 @@ public class SoulflameHornAudioPlugin extends Plugin
 		return client.getVarbitValue(VarbitID.PLAYER_HAS_EQUIPPED_SOULFLAME_HORN) != 0;
 	}
 
-
 	@Subscribe
 	public void onChatMessage(ChatMessage event)
 	{
@@ -202,12 +185,6 @@ public class SoulflameHornAudioPlugin extends Plugin
 		}
 
 		final String message = event.getMessage().toLowerCase();
-
-		if (config.logHornEvents() && (message.contains("horn") || message.contains("encourage")))
-		{
-			diagnosticTicksRemaining = DIAGNOSTIC_WINDOW_TICKS;
-			log.info("[horn-diag] message: {}", event.getMessage());
-		}
 
 		if (message.contains(SELF_CAST) || message.contains(ALLY_CAST))
 		{
@@ -297,53 +274,6 @@ public class SoulflameHornAudioPlugin extends Plugin
 		{
 			enticeTicksRemaining--;
 		}
-
-		if (diagnosticTicksRemaining > 0)
-		{
-			diagnosticTicksRemaining--;
-		}
-	}
-
-	@Subscribe
-	public void onAnimationChanged(AnimationChanged event)
-	{
-		if (!config.logHornEvents() || !(event.getActor() instanceof Player))
-		{
-			return;
-		}
-
-		final Player player = (Player) event.getActor();
-		if (isHornBlow(player.getAnimation()))
-		{
-			diagnosticTicksRemaining = DIAGNOSTIC_WINDOW_TICKS;
-			log.info("[horn-diag] {} blew the horn (anim {})", player.getName(), player.getAnimation());
-		}
-		else if (diagnosticTicksRemaining > 0)
-		{
-			log.info("[horn-diag] {} anim {}", player.getName(), player.getAnimation());
-		}
-	}
-
-	@Subscribe
-	public void onGraphicChanged(GraphicChanged event)
-	{
-		if (!config.logHornEvents() || diagnosticTicksRemaining <= 0 || !(event.getActor() instanceof Player))
-		{
-			return;
-		}
-
-		final Player player = (Player) event.getActor();
-		final StringBuilder ids = new StringBuilder();
-		for (ActorSpotAnim spotAnim : player.getSpotAnims())
-		{
-			if (ids.length() > 0)
-			{
-				ids.append(", ");
-			}
-			ids.append(spotAnim.getId());
-		}
-
-		log.info("[horn-diag] {} spotanims [{}]", player.getName(), ids);
 	}
 
 	/**
@@ -501,14 +431,6 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 		final String name = Text.sanitize(plain.substring(0, end)).trim();
 		return name.isEmpty() ? null : name;
-	}
-
-	private static boolean isHornBlow(int animation)
-	{
-		return animation == AnimationID.SOULFLAME_HORN_BLOW_01
-			|| animation == AnimationID.SOULFLAME_HORN_BLOW_02
-			|| animation == AnimationID.SOULFLAME_HORN_BLOW_03
-			|| animation == AnimationID.SOULFLAME_HORN_BLOW_03_NO_FIRE;
 	}
 
 	private void play(String bundled, String customStem)
