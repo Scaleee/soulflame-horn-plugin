@@ -2,11 +2,8 @@ package soulflameaudio;
 
 import com.google.inject.Provides;
 import java.io.File;
-import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.inject.Inject;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.UnsupportedAudioFileException;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ActorSpotAnim;
 import net.runelite.api.ChatMessageType;
@@ -536,7 +533,10 @@ public class SoulflameHornAudioPlugin extends Plugin
 				audioPlayer.play(getClass(), BUNDLED_SOUND_PATH + bundled + WAV, gain);
 			}
 		}
-		catch (IOException | UnsupportedAudioFileException | LineUnavailableException e)
+		// AudioPlayer declares checked exceptions from the sound API, which the plugin hub does not
+		// allow us to name. Catching Exception covers them without importing them, and a failed sound
+		// is only ever logged either way.
+		catch (Exception e)
 		{
 			log.warn("Failed to play {}", override != null ? override : bundled, e);
 		}
