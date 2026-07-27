@@ -1,0 +1,9 @@
+.gradle/
+build/
+docs/
+*.iml
+.idea/
+
+# JVM crash dumps, left behind when the dev client runs out of heap
+hs_err_pid*.log
+replay_pid*.log
