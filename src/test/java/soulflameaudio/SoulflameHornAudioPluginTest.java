@@ -9,7 +9,10 @@ import javax.inject.Inject;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Hitsplat;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.events.ChatMessage;
@@ -95,6 +98,10 @@ public class SoulflameHornAudioPluginTest
 	private SoulflameHornRadiusOverlay radiusOverlay;
 
 	@Mock
+	@Bind
+	private SoulflameHornReminderOverlay reminderOverlay;
+
+	@Mock
 	private Player localPlayer;
 
 	@Mock
@@ -105,6 +112,9 @@ public class SoulflameHornAudioPluginTest
 
 	@Mock
 	private Hitsplat hitsplat;
+
+	@Mock
+	private ItemContainer equipment;
 
 	@Inject
 	private SoulflameHornAudioPlugin plugin;
@@ -122,6 +132,71 @@ public class SoulflameHornAudioPluginTest
 		when(config.enableSounds()).thenReturn(true);
 		when(config.volume()).thenReturn(100);
 		when(hitsplat.isMine()).thenReturn(true);
+	}
+
+	@Test
+	public void theHornCountsAsEquippedWhenItIsInTheWeaponSlot()
+	{
+		givenWorn(net.runelite.api.gameval.ItemID.SOULFLAME_HORN);
+
+		assertTrue(plugin.isHornEquipped());
+	}
+
+	@Test
+	public void anotherWeaponDoesNotCountAsTheHorn()
+	{
+		givenWorn(net.runelite.api.gameval.ItemID.SOULFLAME_HORN + 1);
+
+		assertFalse(plugin.isHornEquipped());
+	}
+
+	@Test
+	public void anEmptyWeaponSlotDoesNotCountAsTheHorn()
+	{
+		when(client.getItemContainer(net.runelite.api.gameval.InventoryID.WORN)).thenReturn(equipment);
+		when(equipment.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx())).thenReturn(null);
+
+		assertFalse(plugin.isHornEquipped());
+	}
+
+	@Test
+	public void noEquipmentAtAllDoesNotCountAsTheHorn()
+	{
+		when(client.getItemContainer(net.runelite.api.gameval.InventoryID.WORN)).thenReturn(null);
+
+		assertFalse(plugin.isHornEquipped());
+	}
+
+	@Test
+	public void anUnconfiguredHornReportsNoRadius()
+	{
+		when(client.getVarbitValue(net.runelite.api.gameval.VarbitID.YAMA_HORN_RADIUS)).thenReturn(0);
+
+		assertEquals(0, plugin.getHornRadius());
+		assertFalse("this is what makes the reminder show instead of a blank overlay",
+			plugin.isHornRadiusConfigured());
+	}
+
+	@Test
+	public void aConfiguredHornReportsItselfConfigured()
+	{
+		when(client.getVarbitValue(net.runelite.api.gameval.VarbitID.YAMA_HORN_RADIUS)).thenReturn(5);
+
+		assertTrue(plugin.isHornRadiusConfigured());
+	}
+
+	@Test
+	public void aConfiguredRadiusIsUsedAsGiven()
+	{
+		when(client.getVarbitValue(net.runelite.api.gameval.VarbitID.YAMA_HORN_RADIUS)).thenReturn(5);
+
+		assertEquals(5, plugin.getHornRadius());
+	}
+
+	private void givenWorn(int itemId)
+	{
+		when(client.getItemContainer(net.runelite.api.gameval.InventoryID.WORN)).thenReturn(equipment);
+		when(equipment.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx())).thenReturn(new Item(itemId, 1));
 	}
 
 	@Test

@@ -7,11 +7,15 @@ import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Hitsplat;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.Player;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.RuneLite;
@@ -101,6 +105,9 @@ public class SoulflameHornAudioPlugin extends Plugin
 	@Inject
 	private SoulflameHornRadiusOverlay radiusOverlay;
 
+	@Inject
+	private SoulflameHornReminderOverlay reminderOverlay;
+
 	private SoulflameHornInfoBox infoBox;
 
 	private int enticeTicksRemaining;
@@ -121,6 +128,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 		enticeCaster = null;
 		wsClient.registerMessage(EnticeStatusMessage.class);
 		overlayManager.add(radiusOverlay);
+		overlayManager.add(reminderOverlay);
 
 		infoBox = new SoulflameHornInfoBox(itemManager.getImage(ItemID.SOULFLAME_HORN), this, this);
 		infoBoxManager.addInfoBox(infoBox);
@@ -138,6 +146,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 		enticeCaster = null;
 		wsClient.unregisterMessage(EnticeStatusMessage.class);
 		overlayManager.remove(radiusOverlay);
+		overlayManager.remove(reminderOverlay);
 		infoBoxManager.removeInfoBox(infoBox);
 		infoBox = null;
 	}
@@ -166,14 +175,36 @@ public class SoulflameHornAudioPlugin extends Plugin
 			: getEnticeSecondsRemaining());
 	}
 
+	/** The radius in tiles, or zero while the horn has never been configured. */
 	int getHornRadius()
 	{
 		return client.getVarbitValue(VarbitID.YAMA_HORN_RADIUS);
 	}
 
+	/**
+	 * The horn reports no radius until it has been configured, and the configure option only appears
+	 * while it is equipped. Distinguishing that from a real radius is what lets the reminder explain
+	 * an otherwise blank overlay.
+	 */
+	boolean isHornRadiusConfigured()
+	{
+		return getHornRadius() > 0;
+	}
+
+	/**
+	 * Read from the equipment container rather than a varbit, so this reflects what is actually worn
+	 * rather than relying on the meaning of a varbit name.
+	 */
 	boolean isHornEquipped()
 	{
-		return client.getVarbitValue(VarbitID.PLAYER_HAS_EQUIPPED_SOULFLAME_HORN) != 0;
+		final ItemContainer equipment = client.getItemContainer(InventoryID.WORN);
+		if (equipment == null)
+		{
+			return false;
+		}
+
+		final Item weapon = equipment.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx());
+		return weapon != null && weapon.getId() == ItemID.SOULFLAME_HORN;
 	}
 
 	@Subscribe
