@@ -17,7 +17,7 @@ public interface SoulflameHornAudioConfig extends Config
 	String RADIUS_FILL_OPACITY = "radiusFillOpacity";
 
 	// The same for every sound's file setting
-	String FILE_DESCRIPTION = "Leave blank for the default sound. Otherwise the full path to a .wav file, or to a folder to play one at random. "
+	String FILE_DESCRIPTION = "Leave blank for the default sound. Otherwise the full path to a .wav or .mp3 file, or to a folder to play one at random. "
 		+ "A file name on its own is looked for in .runelite\\soulflamehornaudio.";
 
 	@ConfigSection(
@@ -161,7 +161,7 @@ public interface SoulflameHornAudioConfig extends Config
 	@ConfigItem(
 		keyName = "useCustomSounds",
 		name = "Use Custom Audio",
-		description = "Play your own files instead of the bundled tones. Supports .wav, .au and .aiff; mp3 and ogg cannot be played. The fields below only take effect while this is on.",
+		description = "Play your own files instead of the bundled tones. Supports .wav, .mp3, .au and .aiff. The fields below only take effect while this is on.",
 		section = customSection,
 		position = 0
 	)

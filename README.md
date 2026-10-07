@@ -69,18 +69,18 @@ For variety, add a suffix after a dash and drop in as many files as you like:
 
 ```
 entice-sent-yeah-baby.wav
-entice-sent-groovy.wav
+entice-sent-groovy.mp3
 entice-sent-shagadelic.wav
 ```
 
-Anything matching `entice-sent-*.wav` is a candidate, and one is chosen each time.
+Anything named `entice-sent-*`, in any supported format, is a candidate, and one is chosen each time.
 
-**Formats:** `.wav`, `.au` and `.aiff`.
-Java's sound system cannot decode mp3 or ogg, and a decoder would mean a third party dependency the plugin hub's standard build cannot carry.
-Convert first:
+**Formats:** `.wav`, `.mp3`, `.au` and `.aiff`.
+An mp3 is decoded to a `.wav` the first time it is used and kept in `~/.runelite/cache/soulflamehornaudio/`, so it costs nothing after that.
+Anything else, such as ogg or m4a, needs converting first:
 
 ```
-ffmpeg -i clip.mp3 -acodec pcm_s16le -ar 44100 entice-sent-groovy.wav
+ffmpeg -i clip.ogg entice-sent-groovy.mp3
 ```
 
 Only the bundled sounds ship with the plugin.

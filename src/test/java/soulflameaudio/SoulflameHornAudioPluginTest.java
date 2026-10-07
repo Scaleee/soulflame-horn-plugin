@@ -5,10 +5,14 @@ import com.google.inject.testing.fieldbinder.Bind;
 import com.google.inject.testing.fieldbinder.BoundFieldModule;
 import java.awt.Color;
 import java.io.File;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
@@ -94,6 +98,10 @@ public class SoulflameHornAudioPluginTest
 
 	@Mock
 	@Bind
+	private ScheduledExecutorService executor;
+
+	@Mock
+	@Bind
 	private SoulflameHornAudioConfig config;
 
 	@Mock
@@ -164,7 +172,13 @@ public class SoulflameHornAudioPluginTest
 		when(config.volume()).thenReturn(100);
 		when(hitsplat.isMine()).thenReturn(true);
 		when(client.getTickCount()).thenAnswer(invocation -> tick);
-		// Work handed to the client thread runs straight away, so what it does can be checked directly.
+		// Background work runs straight away, so what it plays can be checked like anything else.
+		doAnswer(invocation ->
+		{
+			invocation.<Runnable>getArgument(0).run();
+			return null;
+		}).when(executor).execute(any());
+		// Likewise work handed to the client thread.
 		doAnswer(invocation ->
 		{
 			invocation.<Runnable>getArgument(0).run();
@@ -915,8 +929,43 @@ public class SoulflameHornAudioPluginTest
 	@Test
 	public void anUnplayableFormatFallsBackRatherThanGoingSilent() throws Exception
 	{
+		File ogg = File.createTempFile("entice-test", ".ogg");
+		ogg.deleteOnExit();
+		when(config.useCustomSounds()).thenReturn(true);
+		when(config.sentFile()).thenReturn(ogg.getAbsolutePath());
+
+		plugin.onChatMessage(gameMessage(SELF_CAST));
+
+		verifyPlayed(SoulflameHornAudioPlugin.SENT_SOUND);
+	}
+
+	@Test
+	public void anMp3IsDecodedAndPlayed() throws Exception
+	{
 		File mp3 = File.createTempFile("entice-test", ".mp3");
 		mp3.deleteOnExit();
+		try (InputStream tone = getClass().getResourceAsStream("/soulflameaudio/tone-mono.mp3"))
+		{
+			Files.copy(tone, mp3.toPath(), StandardCopyOption.REPLACE_EXISTING);
+		}
+		when(config.useCustomSounds()).thenReturn(true);
+		when(config.sentFile()).thenReturn(mp3.getAbsolutePath());
+
+		plugin.onChatMessage(gameMessage(SELF_CAST));
+
+		ArgumentCaptor<File> played = ArgumentCaptor.forClass(File.class);
+		verify(audioPlayer).play(played.capture(), anyFloat());
+		played.getValue().deleteOnExit();
+		assertTrue(played.getValue().getName(), played.getValue().getName().endsWith(".wav"));
+		assertTrue("the decoded copy is real audio", played.getValue().length() > 44);
+	}
+
+	@Test
+	public void anMp3ThatWillNotDecodeFallsBackToTheBundledSound() throws Exception
+	{
+		File mp3 = File.createTempFile("entice-test", ".mp3");
+		mp3.deleteOnExit();
+		Files.write(mp3.toPath(), "this is not audio".getBytes());
 		when(config.useCustomSounds()).thenReturn(true);
 		when(config.sentFile()).thenReturn(mp3.getAbsolutePath());
 

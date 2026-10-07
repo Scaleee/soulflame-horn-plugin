@@ -6,6 +6,7 @@ import java.io.File;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
@@ -59,11 +60,14 @@ public class SoulflameHornAudioPlugin extends Plugin
 	static final String ALLY_WASTED_SOUND = "entice-ally-wasted";
 	static final File SOUND_DIR = new File(RuneLite.RUNELITE_DIR, SoulflameHornAudioConfig.GROUP);
 
+	/** Where decoded copies of mp3 files are kept, out of the sound folder so they are never picked. */
+	private static final File DECODED_DIR = new File(RuneLite.CACHE_DIR, SoulflameHornAudioConfig.GROUP);
+
 	private static final String BUNDLED_SOUND_PATH = "/soulflameaudio/";
 	private static final String WAV = ".wav";
 
-	/** Everything java.sound can decode without a third party library. Notably not mp3 or ogg. */
-	private static final String[] AUDIO_EXTENSIONS = {".wav", ".au", ".aif", ".aiff"};
+	/** What java.sound decodes for the audio player, and mp3, which is decoded to .wav first. */
+	private static final String[] AUDIO_EXTENSIONS = {".wav", ".mp3", ".au", ".aif", ".aiff"};
 
 	/**
 	 * Entice empowers the next melee attack made within 10 ticks. The server announces the expiry
@@ -111,6 +115,9 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	@Inject
 	private AudioPlayer audioPlayer;
+
+	@Inject
+	private ScheduledExecutorService executor;
 
 	@Inject
 	private PartyService partyService;
@@ -193,6 +200,30 @@ public class SoulflameHornAudioPlugin extends Plugin
 		if (!SOUND_DIR.exists() && !SOUND_DIR.mkdirs())
 		{
 			log.warn("Could not create sound override directory {}", SOUND_DIR);
+		}
+
+		// Decoded ahead of time, so even the first play of an mp3 in the sound folder is instant.
+		executor.execute(() -> decodeAll(SOUND_DIR));
+	}
+
+	private static void decodeAll(File directory)
+	{
+		final File[] mp3s = directory.listFiles(Mp3ToWav::isMp3);
+		if (mp3s == null)
+		{
+			return;
+		}
+
+		for (File mp3 : mp3s)
+		{
+			try
+			{
+				Mp3ToWav.convert(mp3, DECODED_DIR);
+			}
+			catch (Exception e)
+			{
+				log.warn("Could not decode {}", mp3, e);
+			}
 		}
 	}
 
@@ -733,23 +764,62 @@ public class SoulflameHornAudioPlugin extends Plugin
 		final float gain = 20f * (float) Math.log10(volume / 100f);
 		final File override = config.useCustomSounds() ? pickOverride(stemFor(bundled, customStem)) : null;
 
+		if (override == null)
+		{
+			playBundled(bundled, gain);
+		}
+		else if (Mp3ToWav.isMp3(override))
+		{
+			// Decoding can take a moment the first time, which the game should never wait on.
+			executor.execute(() -> playDecoded(override, bundled, gain));
+		}
+		else
+		{
+			playFile(override, gain);
+		}
+	}
+
+	private void playDecoded(File mp3, String bundled, float gain)
+	{
+		final File wav;
 		try
 		{
-			if (override != null)
-			{
-				audioPlayer.play(override, gain);
-			}
-			else
-			{
-				audioPlayer.play(getClass(), BUNDLED_SOUND_PATH + bundled + WAV, gain);
-			}
+			wav = Mp3ToWav.convert(mp3, DECODED_DIR);
 		}
-		// AudioPlayer declares checked exceptions from the sound API, which the plugin hub does not
-		// allow us to name. Catching Exception covers them without importing them, and a failed sound
-		// is only ever logged either way.
 		catch (Exception e)
 		{
-			log.warn("Failed to play {}", override != null ? override : bundled, e);
+			log.warn("Could not decode {}, playing the bundled sound instead", mp3, e);
+			playBundled(bundled, gain);
+			return;
+		}
+
+		playFile(wav, gain);
+	}
+
+	// AudioPlayer declares checked exceptions from the sound API, which the plugin hub does not allow
+	// us to name. Catching Exception covers them without importing them, and a failed sound is only
+	// ever logged either way.
+	private void playFile(File file, float gain)
+	{
+		try
+		{
+			audioPlayer.play(file, gain);
+		}
+		catch (Exception e)
+		{
+			log.warn("Failed to play {}", file, e);
+		}
+	}
+
+	private void playBundled(String bundled, float gain)
+	{
+		try
+		{
+			audioPlayer.play(getClass(), BUNDLED_SOUND_PATH + bundled + WAV, gain);
+		}
+		catch (Exception e)
+		{
+			log.warn("Failed to play {}", bundled, e);
 		}
 	}
 
@@ -789,8 +859,8 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	/**
 	 * Resolves the user's clip for an event, or null to fall back to the bundled sound. Accepts a
-	 * full path to a .wav, a full path to a folder to pick from, or a bare name looked up in the
-	 * plugin's own sound folder.
+	 * full path to a sound file, a full path to a folder to pick from, or a bare name looked up in
+	 * the plugin's own sound folder.
 	 */
 	private static File pickOverride(String setting)
 	{
@@ -805,7 +875,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 		{
 			if (asPath.isDirectory())
 			{
-				return randomWavIn(asPath, null);
+				return randomClipIn(asPath, null);
 			}
 
 			if (!asPath.isFile())
@@ -815,14 +885,14 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 			if (!isSupportedAudio(asPath.getName().toLowerCase()))
 			{
-				log.warn("{} is not a format java.sound can play; convert it to .wav", asPath);
+				log.warn("{} is not a format the plugin can play; convert it to .wav or .mp3", asPath);
 				return null;
 			}
 
 			return asPath;
 		}
 
-		return randomWavIn(soundDir, setting);
+		return randomClipIn(soundDir, setting);
 	}
 
 	private static boolean isSupportedAudio(String lowerName)
@@ -839,10 +909,10 @@ public class SoulflameHornAudioPlugin extends Plugin
 	}
 
 	/**
-	 * Picks a random .wav from a folder. With a stem, both {@code name.wav} and any {@code name-*.wav}
-	 * qualify, so dropping in several variants gives a different one each time.
+	 * Picks a random sound from a folder. With a stem, {@code name} and any {@code name-*} qualify in
+	 * any supported format, so dropping in several variants gives a different one each time.
 	 */
-	private static File randomWavIn(File directory, String stem)
+	private static File randomClipIn(File directory, String stem)
 	{
 		final String wanted = stem == null ? null : stem.toLowerCase();
 

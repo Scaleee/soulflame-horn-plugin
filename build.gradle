@@ -19,6 +19,9 @@ def pluginMainClass = 'soulflameaudio.SoulflameHornAudioLauncher'
 dependencies {
 	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
 
+	// mp3 decoding: RuneLite's audio player only reads what java.sound decodes, and plugins may not use java.sound
+	implementation 'javazoom:jlayer:1.0.1'
+
 	compileOnly 'org.projectlombok:lombok:1.18.30'
 	annotationProcessor 'org.projectlombok:lombok:1.18.30'
 

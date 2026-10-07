@@ -73,10 +73,26 @@ public class CustomAudioResolutionTest
 	@Test
 	public void anUnplayableFormatIsIgnored() throws IOException
 	{
-		soundFolder.newFile("entice-sent.mp3");
+		soundFolder.newFile("entice-sent.ogg");
 
-		assertNull("mp3 cannot be decoded, so it must fall back rather than fail",
+		assertNull("ogg cannot be decoded, so it must fall back rather than fail",
 			SoulflameHornAudioPlugin.pickOverride(soundFolder.getRoot(), "entice-sent"));
+	}
+
+	@Test
+	public void anMp3IsACandidate() throws IOException
+	{
+		File mp3 = soundFolder.newFile("entice-sent.mp3");
+
+		assertEquals(mp3, SoulflameHornAudioPlugin.pickOverride(soundFolder.getRoot(), "entice-sent"));
+	}
+
+	@Test
+	public void anAbsolutePathToAnMp3IsUsedDirectly() throws IOException
+	{
+		File mp3 = soundFolder.newFile("anywhere.mp3");
+
+		assertEquals(mp3, SoulflameHornAudioPlugin.pickOverride(soundFolder.getRoot(), mp3.getAbsolutePath()));
 	}
 
 	@Test
