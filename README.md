@@ -59,6 +59,7 @@ Every field accepts:
 - a **full path to a folder**, and one file from it is picked at random,
 - or a **bare name** looked up in `~/.runelite/soulflamehornaudio/`.
 
+Quotes around a path are fine, so a path from Windows' **Copy as path** can be pasted as it is.
 Leave a field blank to keep the bundled sound.
 If nothing matches, the bundled sound plays, so a typo degrades to the default rather than to silence.
 

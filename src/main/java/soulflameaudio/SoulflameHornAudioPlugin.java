@@ -2,6 +2,8 @@ package soulflameaudio;
 
 import com.google.inject.Provides;
 import java.io.File;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -12,9 +14,11 @@ import net.runelite.api.Hitsplat;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Player;
+import net.runelite.api.Skill;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.events.StatChanged;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
@@ -115,6 +119,25 @@ public class SoulflameHornAudioPlugin extends Plugin
 	/** Who gave us the current buff, or null when we blew the horn ourselves. */
 	private String enticeCaster;
 
+	/** The tick the current buff was given, so only attacks made since then say how it was used. */
+	private int enticeCastTick;
+
+	/** A hit of ours that may have spent the buff, decided at the end of its tick. See {@link #onGameTick}. */
+	private boolean hitPending;
+
+	/**
+	 * A wasted horn can fade for several people at once, us and every party member it reached. Only the
+	 * first of those plays a sound, so one blow never makes more than one noise when it goes to waste.
+	 */
+	private boolean expirySoundPlayed;
+
+	/** Last seen experience per skill, to tell a gain from the values the client reports on login. */
+	private final Map<Skill, Integer> lastXp = new EnumMap<>(Skill.class);
+
+	/** The latest tick the player gained melee experience, and ranged or magic experience. */
+	private int lastMeleeXpTick = -1;
+	private int lastRangedOrMagicXpTick = -1;
+
 	@Provides
 	SoulflameHornAudioConfig provideConfig(ConfigManager configManager)
 	{
@@ -126,6 +149,8 @@ public class SoulflameHornAudioPlugin extends Plugin
 	{
 		enticeTicksRemaining = 0;
 		enticeCaster = null;
+		hitPending = false;
+		lastXp.clear();
 		wsClient.registerMessage(EnticeStatusMessage.class);
 		overlayManager.add(radiusOverlay);
 		overlayManager.add(reminderOverlay);
@@ -223,6 +248,9 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 			enticeTicksRemaining = ENTICE_DURATION_TICKS;
 			enticeCaster = ourOwnHorn ? null : casterFrom(event.getMessage());
+			enticeCastTick = client.getTickCount();
+			hitPending = false;
+			expirySoundPlayed = false;
 			log.debug("Entice applied by {}, expires in {} ticks",
 				ourOwnHorn ? "self" : enticeCaster, ENTICE_DURATION_TICKS);
 
@@ -257,7 +285,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 			if (config.playFadedSound())
 			{
-				play(FADED_SOUND, config.fadedFile());
+				playExpiry(FADED_SOUND, config.fadedFile());
 			}
 		}
 		else if (message.contains(NO_LISTENERS))
@@ -286,6 +314,72 @@ public class SoulflameHornAudioPlugin extends Plugin
 			return;
 		}
 
+		hitPending = true;
+	}
+
+	/**
+	 * Experience lands when an attack is made, so it shows which style the player is attacking with.
+	 * Melee trains Attack, Strength or Defence. Ranged and magic train their own skill, and their
+	 * defensive styles add Defence alongside it.
+	 */
+	@Subscribe
+	public void onStatChanged(StatChanged event)
+	{
+		final Integer previous = lastXp.put(event.getSkill(), event.getXp());
+		if (previous == null || event.getXp() <= previous)
+		{
+			return;
+		}
+
+		switch (event.getSkill())
+		{
+			case ATTACK:
+			case STRENGTH:
+			case DEFENCE:
+				lastMeleeXpTick = client.getTickCount();
+				break;
+			case RANGED:
+			case MAGIC:
+				lastRangedOrMagicXpTick = client.getTickCount();
+				break;
+			default:
+				break;
+		}
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick event)
+	{
+		// Before the countdown, so a hit on the buff's last tick still counts.
+		if (hitPending)
+		{
+			hitPending = false;
+			if (enticeTicksRemaining > 0 && hitWasMelee())
+			{
+				spend();
+			}
+		}
+
+		if (enticeTicksRemaining > 0)
+		{
+			enticeTicksRemaining--;
+		}
+	}
+
+	/**
+	 * Entice only empowers melee, so a ranged or magic hit leaves it waiting for the next melee one.
+	 * The latest combat experience since the horn was blown says how the player attacked. A tie means
+	 * Defence came with Ranged or Magic, from longrange or defensive casting. With no experience to go
+	 * on, the hit is taken to be melee.
+	 */
+	private boolean hitWasMelee()
+	{
+		final boolean rangedOrMagicSinceCast = lastRangedOrMagicXpTick > enticeCastTick;
+		return !rangedOrMagicSinceCast || lastMeleeXpTick > lastRangedOrMagicXpTick;
+	}
+
+	private void spend()
+	{
 		enticeTicksRemaining = 0;
 		log.debug("Entice spent");
 
@@ -298,19 +392,6 @@ public class SoulflameHornAudioPlugin extends Plugin
 		}
 	}
 
-	@Subscribe
-	public void onGameTick(GameTick event)
-	{
-		if (enticeTicksRemaining > 0)
-		{
-			enticeTicksRemaining--;
-		}
-	}
-
-	/**
-	 * Shows our own line locally and, when the buff came from a party member, tells them too. Their
-	 * client decides whether to react, since only they know their own display name.
-	 */
 	/** Shows our own line locally and, when in a party, tells everyone else so they can show it too. */
 	private void announce(EnticeStatus status, String overheadText)
 	{
@@ -344,7 +425,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 		final boolean ours = weCast(event);
 		if (event.getStatus() == EnticeStatus.WASTED && config.playAllyWastedSound() && ours)
 		{
-			play(ALLY_WASTED_SOUND, config.allyWastedFile());
+			playExpiry(ALLY_WASTED_SOUND, config.allyWastedFile());
 		}
 
 		if (config.showAllyOverheadText() && senderName != null)
@@ -429,7 +510,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 	private void showOverheadText(String playerName, String text)
 	{
 		final String wanted = Text.sanitize(playerName);
-		for (Player player : client.getPlayers())
+		for (Player player : client.getTopLevelWorldView().players())
 		{
 			if (player.getName() != null && Text.sanitize(player.getName()).equalsIgnoreCase(wanted))
 			{
@@ -462,6 +543,18 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 		final String name = Text.sanitize(plain.substring(0, end)).trim();
 		return name.isEmpty() ? null : name;
+	}
+
+	/** Plays the sound for a buff going to waste, unless another fade from the same blow already has. */
+	private void playExpiry(String bundled, String customStem)
+	{
+		if (expirySoundPlayed)
+		{
+			return;
+		}
+
+		expirySoundPlayed = true;
+		play(bundled, customStem);
 	}
 
 	private void play(String bundled, String customStem)
@@ -502,8 +595,31 @@ public class SoulflameHornAudioPlugin extends Plugin
 			return bundled;
 		}
 
-		final String trimmed = customStem.trim();
-		return trimmed.isEmpty() ? bundled : trimmed;
+		final String unquoted = unquote(customStem);
+		return unquoted.isEmpty() ? bundled : unquoted;
+	}
+
+	/**
+	 * Windows' Copy as path wraps a path in double quotes, and people type single ones too, so any
+	 * quotes around the setting are dropped.
+	 */
+	static String unquote(String setting)
+	{
+		String value = setting.trim();
+		while (!value.isEmpty() && isQuote(value.charAt(0)))
+		{
+			value = value.substring(1).trim();
+		}
+		while (!value.isEmpty() && isQuote(value.charAt(value.length() - 1)))
+		{
+			value = value.substring(0, value.length() - 1).trim();
+		}
+		return value;
+	}
+
+	private static boolean isQuote(char c)
+	{
+		return c == '"' || c == '\'';
 	}
 
 	/**
@@ -512,6 +628,12 @@ public class SoulflameHornAudioPlugin extends Plugin
 	 * plugin's own sound folder.
 	 */
 	private static File pickOverride(String setting)
+	{
+		return pickOverride(SOUND_DIR, setting);
+	}
+
+	/** Takes the folder explicitly so the resolution can be exercised against a real directory. */
+	static File pickOverride(File soundDir, String setting)
 	{
 		final File asPath = new File(setting);
 		if (asPath.isAbsolute())
@@ -535,7 +657,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 			return asPath;
 		}
 
-		return randomWavIn(SOUND_DIR, setting);
+		return randomWavIn(soundDir, setting);
 	}
 
 	private static boolean isSupportedAudio(String lowerName)
