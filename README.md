@@ -46,7 +46,7 @@ Turn sounds off entirely if you would rather rely on the overhead text alone.
 | Countdown Units | Seconds | Count down in seconds or in game ticks. |
 | Draw Horn Radius | off | Outline the ground your horn reaches, while it is equipped. |
 | Radius Colour | green | Colour of the radius. Its opacity fades the outline and the fill together. |
-| Radius Fill Opacity | 10% | How strongly the area is shaded, as a share of the radius colour's opacity. |
+| Radius Fill Opacity | 30% | How strongly the area is shaded, as a share of the radius colour's opacity. |
 | Radius Border Width | 2 | Width of the outline. |
 
 The radius follows the horn's own configuration, so right-clicking the horn to change its reach updates the outline immediately.

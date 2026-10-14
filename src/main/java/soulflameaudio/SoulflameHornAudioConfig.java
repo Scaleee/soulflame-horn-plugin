@@ -304,7 +304,7 @@ public interface SoulflameHornAudioConfig extends Config
 	@Units(Units.PERCENT)
 	default int radiusFillOpacity()
 	{
-		return 10;
+		return 30;
 	}
 
 	@ConfigItem(
