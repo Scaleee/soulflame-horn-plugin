@@ -6,6 +6,9 @@ import com.google.inject.testing.fieldbinder.BoundFieldModule;
 import java.awt.Color;
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
@@ -26,10 +29,13 @@ import net.runelite.api.events.StatChanged;
 import net.runelite.client.audio.AudioPlayer;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.events.PartyChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
+import net.runelite.client.party.events.UserJoin;
+import net.runelite.client.party.events.UserPart;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import org.junit.Before;
@@ -715,6 +721,164 @@ public class SoulflameHornAudioPluginTest
 		ArgumentCaptor<EnticeStatusMessage> sent = ArgumentCaptor.forClass(EnticeStatusMessage.class);
 		verify(partyService, times(expectedCount)).send(sent.capture());
 		return sent.getAllValues().get(expectedCount - 1);
+	}
+
+	private static HornRadiusMessage radiusMessage(long memberId, int radius)
+	{
+		HornRadiusMessage message = new HornRadiusMessage(radius);
+		message.setMemberId(memberId);
+		return message;
+	}
+
+	private List<Integer> sentRadii(int expectedCount)
+	{
+		ArgumentCaptor<HornRadiusMessage> sent = ArgumentCaptor.forClass(HornRadiusMessage.class);
+		verify(partyService, times(expectedCount)).send(sent.capture());
+		return sent.getAllValues().stream().map(HornRadiusMessage::getRadius).collect(Collectors.toList());
+	}
+
+	private void givenAHornWithRadius(int radius)
+	{
+		givenWorn(net.runelite.api.gameval.ItemID.SOULFLAME_HORN);
+		when(client.getVarbitValue(net.runelite.api.gameval.VarbitID.YAMA_HORN_RADIUS)).thenReturn(radius);
+	}
+
+	@Test
+	public void aWornHornsRadiusIsSharedOnce()
+	{
+		givenWeAreInAParty();
+		givenAHornWithRadius(5);
+
+		nextTick();
+		nextTick();
+
+		assertEquals(Collections.singletonList(5), sentRadii(1));
+	}
+
+	@Test
+	public void aChangedRadiusIsSharedAgainAndTakingTheHornOffWithdrawsIt()
+	{
+		givenWeAreInAParty();
+		givenAHornWithRadius(5);
+		nextTick();
+		when(client.getVarbitValue(net.runelite.api.gameval.VarbitID.YAMA_HORN_RADIUS)).thenReturn(7);
+		nextTick();
+		givenWorn(net.runelite.api.gameval.ItemID.DRAGON_SCIMITAR);
+		nextTick();
+
+		assertEquals(Arrays.asList(5, 7, 0), sentRadii(3));
+	}
+
+	@Test
+	public void turningSharingOffWithdrawsTheRadius()
+	{
+		givenWeAreInAParty();
+		givenAHornWithRadius(5);
+		nextTick();
+		when(config.partyIntegration()).thenReturn(false);
+		nextTick();
+		nextTick();
+
+		assertEquals(Arrays.asList(5, 0), sentRadii(2));
+	}
+
+	@Test
+	public void nothingIsSharedWhileSharingIsOff()
+	{
+		when(partyService.isInParty()).thenReturn(true);
+		givenAHornWithRadius(5);
+
+		nextTick();
+
+		verify(partyService, never()).send(any());
+	}
+
+	@Test
+	public void anUnconfiguredHornSharesNothing()
+	{
+		givenWeAreInAParty();
+		givenAHornWithRadius(0);
+
+		nextTick();
+
+		verify(partyService, never()).send(any());
+	}
+
+	@Test
+	public void someoneJoiningIsToldTheRadiusAgain()
+	{
+		givenWeAreInAParty();
+		givenAHornWithRadius(5);
+		nextTick();
+
+		plugin.onUserJoin(new UserJoin(1L, 3L));
+		nextTick();
+
+		assertEquals(Arrays.asList(5, 5), sentRadii(2));
+	}
+
+	@Test
+	public void aPartyMembersRadiusIsDrawnAroundThem()
+	{
+		givenAnAllyReportedToUs();
+
+		plugin.onHornRadiusMessage(radiusMessage(2L, 4));
+
+		assertEquals(Collections.singletonMap(allyPlayer, 4), plugin.partyHornRadii());
+	}
+
+	@Test
+	public void aPartyMemberTakingTheHornOffIsNoLongerDrawn()
+	{
+		givenAnAllyReportedToUs();
+		plugin.onHornRadiusMessage(radiusMessage(2L, 4));
+
+		plugin.onHornRadiusMessage(radiusMessage(2L, 0));
+
+		assertTrue(plugin.partyHornRadii().isEmpty());
+	}
+
+	@Test
+	public void aPartyMemberWhoLeavesIsNoLongerDrawn()
+	{
+		givenAnAllyReportedToUs();
+		plugin.onHornRadiusMessage(radiusMessage(2L, 4));
+
+		plugin.onUserPart(new UserPart(2L));
+
+		assertTrue(plugin.partyHornRadii().isEmpty());
+	}
+
+	@Test
+	public void leavingThePartyForgetsEveryRadius()
+	{
+		givenAnAllyReportedToUs();
+		plugin.onHornRadiusMessage(radiusMessage(2L, 4));
+
+		plugin.onPartyChanged(new PartyChanged(null, null));
+
+		assertTrue(plugin.partyHornRadii().isEmpty());
+	}
+
+	@Test
+	public void ourOwnSharedRadiusIsNotDrawnAsAPartyMembers()
+	{
+		givenAnAllyReportedToUs();
+
+		plugin.onHornRadiusMessage(radiusMessage(1L, 4));
+
+		assertTrue(plugin.partyHornRadii().isEmpty());
+	}
+
+	@Test
+	public void aPartyMemberOffScreenIsNotDrawn()
+	{
+		givenAnAllyReportedToUs();
+		when(players.iterator()).thenAnswer(invocation -> Collections.singletonList(localPlayer).iterator());
+
+		plugin.onHornRadiusMessage(radiusMessage(2L, 4));
+
+		assertTrue(plugin.partyHornRadii().isEmpty());
 	}
 
 	private static EnticeStatusMessage statusMessage(long memberId, EnticeStatus status, String casterName, String overheadText)

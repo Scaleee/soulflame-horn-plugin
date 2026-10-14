@@ -103,10 +103,17 @@ Text arriving from another client is stripped of markup and capped at 80 charact
 
 ### Party
 
-One switch, **Share With Party**.
-Everyone involved needs this plugin and the same RuneLite party.
+| Setting | Default | Effect |
+| --- | --- | --- |
+| Share With Party | off | Broadcast your horn events and radius to your RuneLite party, and react to theirs. |
+| Draw Party Radius | on | Outline the ground each party member's horn reaches while they wear it, using the radius they set. |
+| Party Radius Colour | blue | Colour of their radius. Its opacity fades the outline and the fill together, which take their fill opacity and border width from your own radius. |
 
-Each client reports only what it can see for certain about itself, and nothing is sent while the switch is off.
+Everyone involved needs this plugin and the same RuneLite party.
+Only a player's own client can read the radius they set on their horn, which is why it travels through the party.
+
+Each client reports only what it can see for certain about itself.
+Turning the switch off withdraws a radius you shared, and nothing more is sent.
 
 ## Building
 

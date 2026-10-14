@@ -442,4 +442,29 @@ public interface SoulflameHornAudioConfig extends Config
 		return false;
 	}
 
+	@ConfigItem(
+		keyName = "showPartyRadius",
+		name = "Draw Party Radius",
+		description = "Outline the ground a party member's horn reaches while they wear it, using the radius they set. They need this plugin with Share With Party on.",
+		section = partySection,
+		position = 1
+	)
+	default boolean showPartyRadius()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "partyRadiusColour",
+		name = "Party Radius Colour",
+		description = "Colour of party members' horn radius. Its opacity fades the outline and the fill together, which take their fill opacity and border width from your own radius.",
+		section = partySection,
+		position = 2
+	)
+	@Alpha
+	default Color partyRadiusColour()
+	{
+		return new Color(0, 200, 255);
+	}
+
 }

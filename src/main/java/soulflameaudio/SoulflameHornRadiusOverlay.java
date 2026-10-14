@@ -18,7 +18,10 @@ import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
 
-/** Outlines the ground your horn would reach, so you can see who is inside it before blowing it. */
+/**
+ * Outlines the ground your horn would reach, so you can see who is inside it before blowing it, and
+ * that of each party member wearing one, from the radius they shared.
+ */
 class SoulflameHornRadiusOverlay extends Overlay
 {
 	private final Client client;
@@ -38,34 +41,35 @@ class SoulflameHornRadiusOverlay extends Overlay
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
-		if (!config.showHornRadius() || !plugin.isHornEquipped())
-		{
-			return null;
-		}
-
 		final Player localPlayer = client.getLocalPlayer();
-		if (localPlayer == null)
+		if (config.showHornRadius() && localPlayer != null && plugin.isHornEquipped())
 		{
-			return null;
+			draw(graphics, localPlayer, plugin.getHornRadius(), config.radiusColour());
 		}
 
-		final int radius = plugin.getHornRadius();
-		if (radius <= 0)
+		if (config.partyIntegration() && config.showPartyRadius())
 		{
-			return null;
+			plugin.partyHornRadii().forEach((member, radius) -> draw(graphics, member, radius, config.partyRadiusColour()));
 		}
-
-		final Area area = reachableArea(localPlayer.getWorldLocation(), radius);
-		if (area == null || area.isEmpty())
-		{
-			return null;
-		}
-
-		final Color outline = config.radiusColour();
-		OverlayUtil.renderPolygon(graphics, area, outline, fill(outline, config.radiusFillOpacity()),
-			new BasicStroke((float) config.radiusBorderWidth()));
 
 		return null;
+	}
+
+	private void draw(Graphics2D graphics, Player player, int radius, Color outline)
+	{
+		if (radius <= 0)
+		{
+			return;
+		}
+
+		final Area area = reachableArea(player.getWorldLocation(), radius);
+		if (area == null || area.isEmpty())
+		{
+			return;
+		}
+
+		OverlayUtil.renderPolygon(graphics, area, outline, fill(outline, config.radiusFillOpacity()),
+			new BasicStroke((float) config.radiusBorderWidth()));
 	}
 
 	/** The outline's colour at a share of its opacity, so the two fade together. */

@@ -4,6 +4,7 @@ import com.google.inject.Provides;
 import java.awt.Color;
 import java.io.File;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
@@ -29,10 +30,13 @@ import net.runelite.client.audio.AudioPlayer;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.PartyChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
+import net.runelite.client.party.events.UserJoin;
+import net.runelite.client.party.events.UserPart;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -149,6 +153,12 @@ public class SoulflameHornAudioPlugin extends Plugin
 	 */
 	private boolean expirySoundPlayed;
 
+	/** The horn radius each party member has shared, by member id, for those wearing a configured horn. */
+	private final Map<Long, Integer> partyRadii = new HashMap<>();
+
+	/** The radius we last shared with the party, zero meaning none, which is also what a new party assumes. */
+	private int sharedRadius;
+
 	/** Last seen experience per skill, to tell a gain from the values the client reports on login. */
 	private final Map<Skill, Integer> lastXp = new EnumMap<>(Skill.class);
 
@@ -170,7 +180,10 @@ public class SoulflameHornAudioPlugin extends Plugin
 		hitPending = false;
 		lastXp.clear();
 		migrateRadiusColour();
+		partyRadii.clear();
+		sharedRadius = 0;
 		wsClient.registerMessage(EnticeStatusMessage.class);
+		wsClient.registerMessage(HornRadiusMessage.class);
 		overlayManager.add(radiusOverlay);
 		overlayManager.add(reminderOverlay);
 
@@ -209,6 +222,8 @@ public class SoulflameHornAudioPlugin extends Plugin
 		enticeTicksRemaining = 0;
 		enticeCaster = null;
 		wsClient.unregisterMessage(EnticeStatusMessage.class);
+		wsClient.unregisterMessage(HornRadiusMessage.class);
+		partyRadii.clear();
 		overlayManager.remove(radiusOverlay);
 		overlayManager.remove(reminderOverlay);
 		infoBoxManager.removeInfoBox(infoBox);
@@ -404,6 +419,88 @@ public class SoulflameHornAudioPlugin extends Plugin
 		{
 			enticeTicksRemaining--;
 		}
+
+		shareRadius();
+	}
+
+	/**
+	 * Tells the party our horn's radius whenever it changes, and zero once the horn comes off. With
+	 * sharing turned off, a radius already shared is withdrawn and nothing more is sent.
+	 */
+	private void shareRadius()
+	{
+		if (!partyService.isInParty())
+		{
+			return;
+		}
+
+		final int radius = config.partyIntegration() && isHornEquipped() ? getHornRadius() : 0;
+		if (radius != sharedRadius)
+		{
+			sharedRadius = radius;
+			partyService.send(new HornRadiusMessage(radius));
+		}
+	}
+
+	@Subscribe
+	public void onHornRadiusMessage(HornRadiusMessage event)
+	{
+		clientThread.invokeLater(() ->
+		{
+			final PartyMember local = partyService.getLocalMember();
+			if (local != null && event.getMemberId() == local.getMemberId())
+			{
+				return;
+			}
+
+			if (event.getRadius() > 0)
+			{
+				partyRadii.put(event.getMemberId(), event.getRadius());
+			}
+			else
+			{
+				partyRadii.remove(event.getMemberId());
+			}
+		});
+	}
+
+	/** Someone new knows nothing of our horn, so it is shared again on the next tick. */
+	@Subscribe
+	public void onUserJoin(UserJoin event)
+	{
+		clientThread.invokeLater(() -> sharedRadius = 0);
+	}
+
+	@Subscribe
+	public void onUserPart(UserPart event)
+	{
+		clientThread.invokeLater(() -> partyRadii.remove(event.getMemberId()));
+	}
+
+	@Subscribe
+	public void onPartyChanged(PartyChanged event)
+	{
+		clientThread.invokeLater(() ->
+		{
+			partyRadii.clear();
+			sharedRadius = 0;
+		});
+	}
+
+	/** The party members on screen wearing a configured horn, with the radius each of them set. */
+	Map<Player, Integer> partyHornRadii()
+	{
+		final Map<Player, Integer> shown = new HashMap<>();
+		for (Map.Entry<Long, Integer> entry : partyRadii.entrySet())
+		{
+			final PartyMember member = partyService.getMemberById(entry.getKey());
+			final Player player = member == null ? null : findPlayer(member.getDisplayName());
+			if (player != null)
+			{
+				shown.put(player, entry.getValue());
+			}
+		}
+		return shown;
 	}
 
 	/**
@@ -567,15 +664,25 @@ public class SoulflameHornAudioPlugin extends Plugin
 	/** Client side only, so the text appears above that player for us and nobody else. */
 	private void showOverheadText(String playerName, String text)
 	{
-		final String wanted = Text.sanitize(playerName);
+		showOverheadTextOn(findPlayer(playerName), text);
+	}
+
+	private Player findPlayer(String name)
+	{
+		if (name == null)
+		{
+			return null;
+		}
+
+		final String wanted = plainName(name);
 		for (Player player : client.getTopLevelWorldView().players())
 		{
-			if (player.getName() != null && Text.sanitize(player.getName()).equalsIgnoreCase(wanted))
+			if (player.getName() != null && plainName(player.getName()).equalsIgnoreCase(wanted))
 			{
-				showOverheadTextOn(player, text);
-				return;
+				return player;
 			}
 		}
+		return null;
 	}
 
 	private void showOverheadTextOn(Player player, String text)
