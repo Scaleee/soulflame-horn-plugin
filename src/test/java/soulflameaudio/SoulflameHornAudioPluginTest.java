@@ -339,6 +339,17 @@ public class SoulflameHornAudioPluginTest
 	}
 
 	@Test
+	public void anAllysNameInAColourCodeIsReportedPlain()
+	{
+		givenWeAreInAParty();
+
+		// as seen live: the game colours the caster's name with a code that is not a tag
+		plugin.onChatMessage(gameMessage(ALLY_CAST.replace("Zezima", "@mes_hl_blu@Zezima")));
+
+		assertEquals("Zezima", lastSentMessage(1).getCasterName());
+	}
+
+	@Test
 	public void blowingYourOwnHornReportsSentWithNoCaster()
 	{
 		givenWeAreInAParty();
@@ -466,6 +477,17 @@ public class SoulflameHornAudioPluginTest
 		givenAnAllyReportedToUs();
 
 		plugin.onEnticeStatusMessage(statusMessage(2L, EnticeStatus.WASTED, "Durial321", null));
+
+		verifyPlayed(SoulflameHornAudioPlugin.ALLY_WASTED_SOUND);
+	}
+
+	@Test
+	public void anAllyOnAnOlderVersionWastingOurBuffPlaysTheAllySound()
+	{
+		givenAnAllyReportedToUs();
+
+		// an older version sends our name with the game's colour code still on it
+		plugin.onEnticeStatusMessage(statusMessage(2L, EnticeStatus.WASTED, "@mes_hl_blu@Durial321", null));
 
 		verifyPlayed(SoulflameHornAudioPlugin.ALLY_WASTED_SOUND);
 	}

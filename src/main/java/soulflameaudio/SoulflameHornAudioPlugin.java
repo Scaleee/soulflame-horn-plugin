@@ -5,6 +5,7 @@ import java.io.File;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
@@ -75,6 +76,11 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	/** Splits "<name> encourages you with their soulflame horn." to recover the caster. */
 	private static final String ALLY_CAST_NAME_SUFFIX = " encourages you with";
+	/**
+	 * The game can colour the caster's name with a code such as {@code @mes_hl_blu@}, which
+	 * {@link Text#removeTags} leaves in place. Player names cannot contain {@code @}.
+	 */
+	private static final Pattern COLOUR_CODE = Pattern.compile("@[a-z0-9_]+@");
 
 	/** Roughly two seconds of overhead text, matching how long the game shows its own. */
 	private static final int OVERHEAD_CYCLES = 120;
@@ -483,7 +489,13 @@ public class SoulflameHornAudioPlugin extends Plugin
 		return localPlayer != null
 			&& localPlayer.getName() != null
 			&& event.getCasterName() != null
-			&& Text.sanitize(localPlayer.getName()).equalsIgnoreCase(event.getCasterName());
+			// plain on both sides, as a client on an older version sends the name with its colour code
+			&& plainName(localPlayer.getName()).equalsIgnoreCase(plainName(event.getCasterName()));
+	}
+
+	private static String plainName(String name)
+	{
+		return Text.sanitize(COLOUR_CODE.matcher(name).replaceAll("")).trim();
 	}
 
 	/**
@@ -541,7 +553,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 			return null;
 		}
 
-		final String name = Text.sanitize(plain.substring(0, end)).trim();
+		final String name = plainName(plain.substring(0, end));
 		return name.isEmpty() ? null : name;
 	}
 
