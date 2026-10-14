@@ -1,6 +1,7 @@
 package soulflameaudio;
 
 import com.google.inject.Provides;
+import java.awt.Color;
 import java.io.File;
 import java.util.EnumMap;
 import java.util.Map;
@@ -83,6 +84,9 @@ public class SoulflameHornAudioPlugin extends Plugin
 	 */
 	private static final Pattern COLOUR_CODE = Pattern.compile("@[a-z0-9_]+@");
 
+	/** Where the radius colour was saved before its opacity covered the outline too. */
+	private static final String LEGACY_RADIUS_COLOUR = "radiusColour";
+
 	/** Roughly two seconds of overhead text, matching how long the game shows its own. */
 	private static final int OVERHEAD_CYCLES = 120;
 
@@ -94,6 +98,9 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	@Inject
 	private ClientThread clientThread;
+
+	@Inject
+	private ConfigManager configManager;
 
 	@Inject
 	private SoulflameHornAudioConfig config;
@@ -162,6 +169,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 		enticeCaster = null;
 		hitPending = false;
 		lastXp.clear();
+		migrateRadiusColour();
 		wsClient.registerMessage(EnticeStatusMessage.class);
 		overlayManager.add(radiusOverlay);
 		overlayManager.add(reminderOverlay);
@@ -173,6 +181,26 @@ public class SoulflameHornAudioPlugin extends Plugin
 		{
 			log.warn("Could not create sound override directory {}", SOUND_DIR);
 		}
+	}
+
+	/**
+	 * The radius colour's opacity once shaded only the area, with the outline always solid. It now
+	 * fades both, so a colour saved the old way moves to the new setting at full opacity, and its old
+	 * opacity becomes the fill's share, which draws it just as before.
+	 */
+	void migrateRadiusColour()
+	{
+		final Color old = configManager.getConfiguration(SoulflameHornAudioConfig.GROUP, LEGACY_RADIUS_COLOUR, Color.class);
+		if (old == null)
+		{
+			return;
+		}
+
+		configManager.setConfiguration(SoulflameHornAudioConfig.GROUP, SoulflameHornAudioConfig.RADIUS_COLOUR,
+			new Color(old.getRed(), old.getGreen(), old.getBlue()));
+		configManager.setConfiguration(SoulflameHornAudioConfig.GROUP, SoulflameHornAudioConfig.RADIUS_FILL_OPACITY,
+			Math.round(old.getAlpha() * 100f / 255));
+		configManager.unsetConfiguration(SoulflameHornAudioConfig.GROUP, LEGACY_RADIUS_COLOUR);
 	}
 
 	@Override

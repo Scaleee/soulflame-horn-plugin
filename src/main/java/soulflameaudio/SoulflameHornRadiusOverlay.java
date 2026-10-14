@@ -61,12 +61,17 @@ class SoulflameHornRadiusOverlay extends Overlay
 			return null;
 		}
 
-		// The configured alpha shades the area; the outline stays solid so the edge reads clearly.
-		final Color fill = config.radiusColour();
-		final Color outline = new Color(fill.getRed(), fill.getGreen(), fill.getBlue());
-		OverlayUtil.renderPolygon(graphics, area, outline, fill, new BasicStroke(2));
+		final Color outline = config.radiusColour();
+		OverlayUtil.renderPolygon(graphics, area, outline, fill(outline, config.radiusFillOpacity()),
+			new BasicStroke((float) config.radiusBorderWidth()));
 
 		return null;
+	}
+
+	/** The outline's colour at a share of its opacity, so the two fade together. */
+	static Color fill(Color outline, int fillPercent)
+	{
+		return new Color(outline.getRed(), outline.getGreen(), outline.getBlue(), outline.getAlpha() * fillPercent / 100);
 	}
 
 	/**

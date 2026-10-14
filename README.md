@@ -45,7 +45,9 @@ Turn sounds off entirely if you would rather rely on the overhead text alone.
 | Display Buff Infobox | on | The horn's icon with a live countdown, turning red near the end. |
 | Countdown Units | Seconds | Count down in seconds or in game ticks. |
 | Draw Horn Radius | off | Outline the ground your horn reaches, while it is equipped. |
-| Radius Colour | green, 10% | Outline colour. The opacity slider shades the area; the outline itself stays solid. |
+| Radius Colour | green | Colour of the radius. Its opacity fades the outline and the fill together. |
+| Radius Fill Opacity | 10% | How strongly the area is shaded, as a share of the radius colour's opacity. |
+| Radius Border Width | 2 | Width of the outline. |
 
 The radius follows the horn's own configuration, so right-clicking the horn to change its reach updates the outline immediately.
 Tiles are drawn individually and unioned, so the shape stays true across stairs and slopes.

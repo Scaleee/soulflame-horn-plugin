@@ -7,11 +7,14 @@ import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.config.Range;
+import net.runelite.client.config.Units;
 
 @ConfigGroup(SoulflameHornAudioConfig.GROUP)
 public interface SoulflameHornAudioConfig extends Config
 {
 	String GROUP = "soulflamehornaudio";
+	String RADIUS_COLOUR = "radiusMarkerColour";
+	String RADIUS_FILL_OPACITY = "radiusFillOpacity";
 
 	// The same for every sound's file setting
 	String FILE_DESCRIPTION = "Leave blank for the default sound. Otherwise the full path to a .wav file, or to a folder to play one at random. "
@@ -278,16 +281,42 @@ public interface SoulflameHornAudioConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "radiusColour",
+		keyName = RADIUS_COLOUR,
 		name = "Radius Colour",
-		description = "Colour of the horn radius outline. The opacity slider controls how strongly the area is shaded.",
+		description = "Colour of the horn radius. Its opacity fades the outline and the fill together.",
 		section = overlaySection,
 		position = 3
 	)
 	@Alpha
 	default Color radiusColour()
 	{
-		return new Color(0, 255, 0, 25);
+		return new Color(0, 255, 0);
+	}
+
+	@ConfigItem(
+		keyName = RADIUS_FILL_OPACITY,
+		name = "Radius Fill Opacity",
+		description = "How strongly the area is shaded, as a share of the radius colour's opacity.",
+		section = overlaySection,
+		position = 4
+	)
+	@Range(max = 100)
+	@Units(Units.PERCENT)
+	default int radiusFillOpacity()
+	{
+		return 10;
+	}
+
+	@ConfigItem(
+		keyName = "radiusBorderWidth",
+		name = "Radius Border Width",
+		description = "Width of the horn radius outline.",
+		section = overlaySection,
+		position = 5
+	)
+	default double radiusBorderWidth()
+	{
+		return 2;
 	}
 
 	// Overhead Text

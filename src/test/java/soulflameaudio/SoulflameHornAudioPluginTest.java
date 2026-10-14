@@ -3,6 +3,7 @@ package soulflameaudio;
 import com.google.inject.Guice;
 import com.google.inject.testing.fieldbinder.Bind;
 import com.google.inject.testing.fieldbinder.BoundFieldModule;
+import java.awt.Color;
 import java.io.File;
 import java.util.Arrays;
 import javax.inject.Inject;
@@ -24,6 +25,7 @@ import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.StatChanged;
 import net.runelite.client.audio.AudioPlayer;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
@@ -75,6 +77,10 @@ public class SoulflameHornAudioPluginTest
 	@Mock
 	@Bind
 	private ClientThread clientThread;
+
+	@Mock
+	@Bind
+	private ConfigManager configManager;
 
 	@Mock
 	@Bind
@@ -515,6 +521,36 @@ public class SoulflameHornAudioPluginTest
 		plugin.onEnticeStatusMessage(statusMessage(2L, EnticeStatus.WASTED, "@mes_hl_blu@Durial321", null));
 
 		verifyPlayed(SoulflameHornAudioPlugin.ALLY_WASTED_SOUND);
+	}
+
+	@Test
+	public void aRadiusColourSavedTheOldWayKeepsItsLook()
+	{
+		when(configManager.getConfiguration(SoulflameHornAudioConfig.GROUP, "radiusColour", Color.class))
+			.thenReturn(new Color(255, 0, 0, 51));
+
+		plugin.migrateRadiusColour();
+
+		verify(configManager).setConfiguration(SoulflameHornAudioConfig.GROUP, SoulflameHornAudioConfig.RADIUS_COLOUR, new Color(255, 0, 0));
+		verify(configManager).setConfiguration(SoulflameHornAudioConfig.GROUP, SoulflameHornAudioConfig.RADIUS_FILL_OPACITY, 20);
+		verify(configManager).unsetConfiguration(SoulflameHornAudioConfig.GROUP, "radiusColour");
+	}
+
+	@Test
+	public void noOldRadiusColourLeavesTheSettingsAlone()
+	{
+		plugin.migrateRadiusColour();
+
+		verify(configManager, never()).setConfiguration(any(String.class), any(String.class), any(Object.class));
+		verify(configManager, never()).unsetConfiguration(any(String.class), any(String.class));
+	}
+
+	@Test
+	public void theFillIsAShareOfTheOutlinesOpacity()
+	{
+		assertEquals(new Color(0, 255, 0, 25), SoulflameHornRadiusOverlay.fill(new Color(0, 255, 0), 10));
+		assertEquals(new Color(0, 255, 0, 12), SoulflameHornRadiusOverlay.fill(new Color(0, 255, 0, 128), 10));
+		assertEquals(new Color(0, 0, 255, 0), SoulflameHornRadiusOverlay.fill(new Color(0, 0, 255, 200), 0));
 	}
 
 	@Test
