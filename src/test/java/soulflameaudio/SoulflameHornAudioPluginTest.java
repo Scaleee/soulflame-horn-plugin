@@ -23,6 +23,7 @@ import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.StatChanged;
 import net.runelite.client.audio.AudioPlayer;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
@@ -44,6 +45,7 @@ import static org.junit.Assert.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -69,6 +71,10 @@ public class SoulflameHornAudioPluginTest
 	@Mock
 	@Bind
 	private Client client;
+
+	@Mock
+	@Bind
+	private ClientThread clientThread;
 
 	@Mock
 	@Bind
@@ -146,6 +152,12 @@ public class SoulflameHornAudioPluginTest
 		when(config.volume()).thenReturn(100);
 		when(hitsplat.isMine()).thenReturn(true);
 		when(client.getTickCount()).thenAnswer(invocation -> tick);
+		// Work handed to the client thread runs straight away, so what it does can be checked directly.
+		doAnswer(invocation ->
+		{
+			invocation.<Runnable>getArgument(0).run();
+			return null;
+		}).when(clientThread).invokeLater(any(Runnable.class));
 	}
 
 	@Test
@@ -501,6 +513,22 @@ public class SoulflameHornAudioPluginTest
 
 		// an older version sends our name with the game's colour code still on it
 		plugin.onEnticeStatusMessage(statusMessage(2L, EnticeStatus.WASTED, "@mes_hl_blu@Durial321", null));
+
+		verifyPlayed(SoulflameHornAudioPlugin.ALLY_WASTED_SOUND);
+	}
+
+	@Test
+	public void aPartyReportWaitsForTheClientThread()
+	{
+		givenAnAllyReportedToUs();
+		doAnswer(invocation -> null).when(clientThread).invokeLater(any(Runnable.class));
+
+		plugin.onEnticeStatusMessage(statusMessage(2L, EnticeStatus.WASTED, "Durial321", null));
+		verifyNotPlayed(SoulflameHornAudioPlugin.ALLY_WASTED_SOUND);
+
+		ArgumentCaptor<Runnable> queued = ArgumentCaptor.forClass(Runnable.class);
+		verify(clientThread).invokeLater(queued.capture());
+		queued.getValue().run();
 
 		verifyPlayed(SoulflameHornAudioPlugin.ALLY_WASTED_SOUND);
 	}

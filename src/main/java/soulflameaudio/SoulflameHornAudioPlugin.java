@@ -25,6 +25,7 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.RuneLite;
 import net.runelite.client.audio.AudioPlayer;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
@@ -90,6 +91,9 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	@Inject
 	private Client client;
+
+	@Inject
+	private ClientThread clientThread;
 
 	@Inject
 	private SoulflameHornAudioConfig config;
@@ -423,6 +427,13 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	@Subscribe
 	public void onEnticeStatusMessage(EnticeStatusMessage event)
+	{
+		// Party messages arrive on the network thread. Handled on the client thread like everything
+		// else, a report never races our own fade to the one wasted sound, and reads the game safely.
+		clientThread.invokeLater(() -> handleReport(event));
+	}
+
+	private void handleReport(EnticeStatusMessage event)
 	{
 		if (!config.partyIntegration() || event.getMemberId() == partyService.getLocalMember().getMemberId())
 		{
