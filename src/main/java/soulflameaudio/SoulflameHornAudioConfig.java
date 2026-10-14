@@ -18,7 +18,7 @@ public interface SoulflameHornAudioConfig extends Config
 
 	// The same for every sound's file setting
 	String FILE_DESCRIPTION = "Leave blank for the default sound. Otherwise the full path to a .wav file, or to a folder to play one at random. "
-		+ "A path pasted with quotes, as Copy as path gives it, works. A file name on its own is looked for in .runelite\\soulflamehornaudio.";
+		+ "A file name on its own is looked for in .runelite\\soulflamehornaudio.";
 
 	@ConfigSection(
 		name = "General",
