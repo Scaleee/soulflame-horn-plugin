@@ -13,6 +13,10 @@ public interface SoulflameHornAudioConfig extends Config
 {
 	String GROUP = "soulflamehornaudio";
 
+	// The same for every sound's file setting
+	String FILE_DESCRIPTION = "Leave blank for the default sound. Otherwise the full path to a .wav file, or to a folder to play one at random. "
+		+ "A path pasted with quotes, as Copy as path gives it, works. A file name on its own is looked for in .runelite\\soulflamehornaudio.";
+
 	@ConfigSection(
 		name = "General",
 		description = "Sound playback and which moments make a noise.",
@@ -166,7 +170,7 @@ public interface SoulflameHornAudioConfig extends Config
 	@ConfigItem(
 		keyName = "sentFile",
 		name = "Player Sent Spec File",
-		description = "Blank uses the bundled entice-sent sound. Otherwise a full path to a .wav, a full path to a folder to pick from at random, or a bare name looked up in the sound folder.",
+		description = FILE_DESCRIPTION,
 		section = customSection,
 		position = 1
 	)
@@ -178,7 +182,7 @@ public interface SoulflameHornAudioConfig extends Config
 	@ConfigItem(
 		keyName = "appliedFile",
 		name = "Player Received Spec File",
-		description = "Blank uses the bundled entice-applied sound. Otherwise a full path to a .wav, a full path to a folder to pick from at random, or a bare name looked up in the sound folder.",
+		description = FILE_DESCRIPTION,
 		section = customSection,
 		position = 2
 	)
@@ -190,7 +194,7 @@ public interface SoulflameHornAudioConfig extends Config
 	@ConfigItem(
 		keyName = "consumedFile",
 		name = "Player Utilized Spec File",
-		description = "Blank uses the bundled entice-consumed sound. Otherwise a full path to a .wav, a folder, or a bare name in the sound folder.",
+		description = FILE_DESCRIPTION,
 		section = customSection,
 		position = 3
 	)
@@ -202,7 +206,7 @@ public interface SoulflameHornAudioConfig extends Config
 	@ConfigItem(
 		keyName = "whiffFile",
 		name = "Player Missed Spec File",
-		description = "Blank uses the bundled entice-whiff sound. Otherwise a full path to a .wav, a folder, or a bare name in the sound folder.",
+		description = FILE_DESCRIPTION,
 		section = customSection,
 		position = 4
 	)
@@ -214,7 +218,7 @@ public interface SoulflameHornAudioConfig extends Config
 	@ConfigItem(
 		keyName = "fadedFile",
 		name = "Player Wasted Spec File",
-		description = "Blank uses the bundled entice-faded sound. Otherwise a full path to a .wav, a folder, or a bare name in the sound folder.",
+		description = FILE_DESCRIPTION,
 		section = customSection,
 		position = 5
 	)
@@ -226,7 +230,7 @@ public interface SoulflameHornAudioConfig extends Config
 	@ConfigItem(
 		keyName = "allyWastedFile",
 		name = "Party Wasted Spec File",
-		description = "Blank uses the bundled entice-ally-wasted sound. Otherwise a full path to a .wav, a folder, or a bare name in the sound folder.",
+		description = FILE_DESCRIPTION,
 		section = customSection,
 		position = 6
 	)
