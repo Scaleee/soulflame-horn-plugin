@@ -271,7 +271,7 @@ public class SoulflameHornAudioPluginTest
 	{
 		plugin.onChatMessage(gameMessage(SELF_CAST));
 		plugin.onChatMessage(gameMessage(EFFECT_FADED));
-		landHit(target);
+		landMeleeHit(target);
 
 		verifyNotPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
 	}
@@ -321,7 +321,7 @@ public class SoulflameHornAudioPluginTest
 		when(config.wastedOverheadText()).thenReturn("Oh, behave!");
 
 		plugin.onChatMessage(gameMessage(SELF_CAST));
-		landHit(target);
+		landMeleeHit(target);
 
 		verify(localPlayer, never()).setOverheadText(any());
 	}
@@ -405,7 +405,7 @@ public class SoulflameHornAudioPluginTest
 		givenWeAreInAParty();
 
 		plugin.onChatMessage(gameMessage(ALLY_CAST));
-		landHit(target);
+		landMeleeHit(target);
 
 		assertEquals(EnticeStatus.SPENT, lastSentMessage(2).getStatus());
 	}
@@ -726,7 +726,7 @@ public class SoulflameHornAudioPluginTest
 	public void landingAHitWhileEnticedPlaysTheConsumedSound()
 	{
 		plugin.onChatMessage(gameMessage(ALLY_CAST));
-		landHit(target);
+		landMeleeHit(target);
 
 		verifyPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
 	}
@@ -735,7 +735,7 @@ public class SoulflameHornAudioPluginTest
 	public void takingDamageWhileEnticedDoesNotSpendTheBuff()
 	{
 		plugin.onChatMessage(gameMessage(ALLY_CAST));
-		landHit(localPlayer);
+		landMeleeHit(localPlayer);
 
 		verifyNotPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
 	}
@@ -746,7 +746,7 @@ public class SoulflameHornAudioPluginTest
 		when(hitsplat.isMine()).thenReturn(false);
 
 		plugin.onChatMessage(gameMessage(ALLY_CAST));
-		landHit(target);
+		landMeleeHit(target);
 
 		verifyNotPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
 	}
@@ -759,7 +759,7 @@ public class SoulflameHornAudioPluginTest
 		{
 			nextTick();
 		}
-		landHit(target);
+		landMeleeHit(target);
 
 		verifyNotPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
 	}
@@ -772,7 +772,7 @@ public class SoulflameHornAudioPluginTest
 		{
 			nextTick();
 		}
-		landHit(target);
+		landMeleeHit(target);
 
 		verifyPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
 	}
@@ -780,7 +780,7 @@ public class SoulflameHornAudioPluginTest
 	@Test
 	public void hittingWithoutTheBuffIsSilent()
 	{
-		landHit(target);
+		landMeleeHit(target);
 
 		verifyNoInteractions(audioPlayer);
 	}
@@ -823,7 +823,7 @@ public class SoulflameHornAudioPluginTest
 		when(config.playWhiffSound()).thenReturn(true);
 
 		plugin.onChatMessage(gameMessage(NO_LISTENERS));
-		landHit(target);
+		landMeleeHit(target);
 
 		verifyNotPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
 	}
@@ -907,9 +907,47 @@ public class SoulflameHornAudioPluginTest
 		nextTick();
 		plugin.onChatMessage(gameMessage(ALLY_CAST));
 		nextTick();
-		landHit(target);
+		landMeleeHit(target);
 
 		verifyPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
+	}
+
+	@Test
+	public void aHitWithNoExperienceLikeAThrallsDoesNotSpendTheBuff()
+	{
+		plugin.onChatMessage(gameMessage(ALLY_CAST));
+		nextTick();
+		landHit(target);
+
+		verifyNotPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
+		assertTrue("the buff is still waiting for a melee hit", plugin.isEnticeActive());
+	}
+
+	@Test
+	public void meleeExperienceFromBeforeTheHornDoesNotCount()
+	{
+		gainXp(Skill.STRENGTH);
+		nextTick();
+		plugin.onChatMessage(gameMessage(ALLY_CAST));
+		nextTick();
+		landHit(target);
+
+		verifyNotPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
+	}
+
+	@Test
+	public void aThrallHitLongAfterAMeleeOneDoesNotSpendTheBuff()
+	{
+		plugin.onChatMessage(gameMessage(ALLY_CAST));
+		nextTick();
+		gainXp(Skill.RANGED);
+		gainXp(Skill.STRENGTH);
+		nextTick();
+		nextTick();
+		nextTick();
+		landHit(target);
+
+		verifyNotPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
 	}
 
 	@Test
@@ -919,7 +957,7 @@ public class SoulflameHornAudioPluginTest
 		nextTick();
 		// On login the client reports every skill once; that is where it stands, not experience gained.
 		plugin.onStatChanged(new StatChanged(Skill.RANGED, 5_000_000, 99, 99));
-		landHit(target);
+		landMeleeHit(target);
 
 		verifyPlayed(SoulflameHornAudioPlugin.CONSUMED_SOUND);
 	}
@@ -1014,6 +1052,12 @@ public class SoulflameHornAudioPluginTest
 	{
 		plugin.onHitsplatApplied(hitsplatOn(actor));
 		nextTick();
+	}
+
+	private void landMeleeHit(Actor actor)
+	{
+		gainXp(Skill.STRENGTH);
+		landHit(actor);
 	}
 
 	private void nextTick()

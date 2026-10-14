@@ -130,6 +130,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	/** A hit of ours that may have spent the buff, decided at the end of its tick. See {@link #onGameTick}. */
 	private boolean hitPending;
+	private int hitTick;
 
 	/**
 	 * A wasted horn can fade for several people at once, us and every party member it reached. Only the
@@ -321,6 +322,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 		}
 
 		hitPending = true;
+		hitTick = client.getTickCount();
 	}
 
 	/**
@@ -374,14 +376,17 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	/**
 	 * Entice only empowers melee, so a ranged or magic hit leaves it waiting for the next melee one.
-	 * The latest combat experience since the horn was blown says how the player attacked. A tie means
-	 * Defence came with Ranged or Magic, from longrange or defensive casting. With no experience to go
-	 * on, the hit is taken to be melee.
+	 * A hit counts when melee experience landed with it, or the tick before, no earlier than the horn,
+	 * and is the latest combat experience. A tie means Defence came with Ranged or Magic, from longrange
+	 * or defensive casting. A hit with no experience at all is not taken as melee: thralls deal damage
+	 * that is ours but gives none. A melee hit of 0, or at 200m experience, gives none either, so it
+	 * goes unannounced rather than a thrall spending the buff.
 	 */
 	private boolean hitWasMelee()
 	{
-		final boolean rangedOrMagicSinceCast = lastRangedOrMagicXpTick > enticeCastTick;
-		return !rangedOrMagicSinceCast || lastMeleeXpTick > lastRangedOrMagicXpTick;
+		return lastMeleeXpTick >= enticeCastTick
+			&& lastMeleeXpTick >= hitTick - 1
+			&& lastMeleeXpTick > lastRangedOrMagicXpTick;
 	}
 
 	private void spend()
