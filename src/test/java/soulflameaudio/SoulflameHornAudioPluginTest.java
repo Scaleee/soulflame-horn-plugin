@@ -375,6 +375,19 @@ public class SoulflameHornAudioPluginTest
 	}
 
 	@Test
+	public void whiffingWhileHoldingAnAllysBuffNamesNoCaster()
+	{
+		givenWeAreInAParty();
+
+		plugin.onChatMessage(gameMessage(ALLY_CAST));
+		plugin.onChatMessage(gameMessage(NO_LISTENERS));
+
+		EnticeStatusMessage sent = lastSentMessage(2);
+		assertEquals(EnticeStatus.MISSED, sent.getStatus());
+		assertNull("the miss was our own horn", sent.getCasterName());
+	}
+
+	@Test
 	public void whiffingStillShowsTextWhenItsSoundIsOff()
 	{
 		when(config.playWhiffSound()).thenReturn(false);

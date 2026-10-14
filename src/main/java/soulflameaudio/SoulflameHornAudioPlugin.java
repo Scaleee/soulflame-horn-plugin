@@ -416,7 +416,9 @@ public class SoulflameHornAudioPlugin extends Plugin
 			return;
 		}
 
-		partyService.send(new EnticeStatusMessage(status, enticeCaster, overheadText));
+		// a miss is our own horn, even while we hold someone else's buff
+		final String caster = status == EnticeStatus.MISSED ? null : enticeCaster;
+		partyService.send(new EnticeStatusMessage(status, caster, overheadText));
 	}
 
 	@Subscribe
