@@ -36,8 +36,8 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
-import net.runelite.client.party.events.UserJoin;
 import net.runelite.client.party.events.UserPart;
+import net.runelite.client.party.messages.UserSync;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -460,7 +460,9 @@ public class SoulflameHornAudioPlugin extends Plugin
 	 */
 	private void shareRadius()
 	{
-		if (!partyService.isInParty())
+		// A client counts as in a party from the moment it asks to join, but the party only has us once
+		// our own member shows up. Sent before then, a radius never reaches anyone and is not sent again.
+		if (!partyService.isInParty() || partyService.getLocalMember() == null)
 		{
 			return;
 		}
@@ -495,9 +497,13 @@ public class SoulflameHornAudioPlugin extends Plugin
 		});
 	}
 
-	/** Someone new knows nothing of our horn, so it is shared again on the next tick. */
+	/**
+	 * Someone new knows nothing of our horn, so it is shared again on the next tick. A newcomer sends
+	 * UserSync once they have finished joining, which is when RuneLite's own party plugin shares its
+	 * state too: their join itself can reach us before they can hear anything we send.
+	 */
 	@Subscribe
-	public void onUserJoin(UserJoin event)
+	public void onUserSync(UserSync event)
 	{
 		clientThread.invokeLater(() -> sharedRadius = 0);
 	}

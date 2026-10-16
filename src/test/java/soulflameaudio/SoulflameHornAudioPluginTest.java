@@ -38,8 +38,8 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.party.PartyMember;
 import net.runelite.client.party.PartyService;
 import net.runelite.client.party.WSClient;
-import net.runelite.client.party.events.UserJoin;
 import net.runelite.client.party.events.UserPart;
+import net.runelite.client.party.messages.UserSync;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import org.junit.Before;
@@ -725,6 +725,7 @@ public class SoulflameHornAudioPluginTest
 	{
 		when(config.partyIntegration()).thenReturn(true);
 		when(partyService.isInParty()).thenReturn(true);
+		when(partyService.getLocalMember()).thenReturn(new PartyMember(1L));
 	}
 
 	private void givenAnAllyReportedToUs()
@@ -839,10 +840,25 @@ public class SoulflameHornAudioPluginTest
 		givenAHornWithRadius(5);
 		nextTick();
 
-		plugin.onUserJoin(new UserJoin(1L, 3L));
+		plugin.onUserSync(new UserSync());
 		nextTick();
 
 		assertEquals(Arrays.asList(5, 5), sentRadii(2));
+	}
+
+	@Test
+	public void joiningWithTheHornOnSharesItOnceThePartyHasUs()
+	{
+		givenWeAreInAParty();
+		givenAHornWithRadius(5);
+		when(partyService.getLocalMember()).thenReturn(null);
+		nextTick();
+		verify(partyService, never()).send(any());
+
+		when(partyService.getLocalMember()).thenReturn(new PartyMember(1L));
+		nextTick();
+
+		assertEquals(Collections.singletonList(5), sentRadii(1));
 	}
 
 	@Test
