@@ -327,6 +327,18 @@ public class SoulflameHornAudioPluginTest
 	}
 
 	@Test
+	public void aBlankLineShowsItsDefault()
+	{
+		when(config.showOwnOverheadText()).thenReturn(true);
+		when(config.wastedOverheadText()).thenReturn("  ");
+
+		plugin.onChatMessage(gameMessage(SELF_CAST));
+		plugin.onChatMessage(gameMessage(EFFECT_FADED));
+
+		verify(localPlayer).setOverheadText(SoulflameHornAudioConfig.WASTED_TEXT);
+	}
+
+	@Test
 	public void yourOwnOverheadTextNeedsNoParty()
 	{
 		when(config.showOwnOverheadText()).thenReturn(true);
@@ -353,15 +365,17 @@ public class SoulflameHornAudioPluginTest
 	}
 
 	@Test
-	public void spendingTheBuffShowsNoOverheadText()
+	public void spendingTheBuffShowsTheUsedLineNotTheWastedOne()
 	{
 		when(config.showOwnOverheadText()).thenReturn(true);
+		when(config.spentOverheadText()).thenReturn("Yeah, baby!");
 		when(config.wastedOverheadText()).thenReturn("Oh, behave!");
 
 		plugin.onChatMessage(gameMessage(SELF_CAST));
 		landMeleeHit(target);
 
-		verify(localPlayer, never()).setOverheadText(any());
+		verify(localPlayer).setOverheadText("Yeah, baby!");
+		verify(localPlayer, never()).setOverheadText("Oh, behave!");
 	}
 
 	@Test
@@ -697,14 +711,14 @@ public class SoulflameHornAudioPluginTest
 	}
 
 	@Test
-	public void anAllyWhoSetNoLineShowsNothing()
+	public void anAllyWhoSentNoLineShowsOurs()
 	{
 		givenAnAllyReportedToUs();
 		when(config.useOthersDialogue()).thenReturn(true);
 
 		plugin.onEnticeStatusMessage(statusMessage(2L, EnticeStatus.WASTED, "Durial321", "   "));
 
-		verify(allyPlayer, never()).setOverheadText(any());
+		verify(allyPlayer).setOverheadText(SoulflameHornAudioConfig.PARTY_WASTED_TEXT);
 	}
 
 	private void givenWeAreInAParty()

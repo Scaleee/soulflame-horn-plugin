@@ -342,7 +342,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 			// Blowing your own horn buffs you as well, but only one of the two events should fire.
 			if (ourOwnHorn)
 			{
-				announce(EnticeStatus.SENT, config.sentOverheadText());
+				announce(EnticeStatus.SENT);
 
 				if (config.playSentSound())
 				{
@@ -351,7 +351,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 			}
 			else
 			{
-				announce(EnticeStatus.RECEIVED, config.appliedOverheadText());
+				announce(EnticeStatus.RECEIVED);
 
 				if (config.playAppliedSound())
 				{
@@ -365,7 +365,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 			enticeTicksRemaining = 0;
 			log.debug("Entice wasted");
 
-			announce(EnticeStatus.WASTED, config.wastedOverheadText());
+			announce(EnticeStatus.WASTED);
 			enticeCaster = null;
 
 			if (config.playFadedSound())
@@ -375,7 +375,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 		}
 		else if (message.contains(NO_LISTENERS))
 		{
-			announce(EnticeStatus.MISSED, config.whiffOverheadText());
+			announce(EnticeStatus.MISSED);
 
 			if (config.playWhiffSound())
 			{
@@ -554,7 +554,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 		enticeTicksRemaining = 0;
 		log.debug("Entice spent");
 
-		announce(EnticeStatus.SPENT, config.spentOverheadText());
+		announce(EnticeStatus.SPENT);
 		enticeCaster = null;
 
 		if (config.playConsumedSound())
@@ -564,8 +564,9 @@ public class SoulflameHornAudioPlugin extends Plugin
 	}
 
 	/** Shows our own line locally and, when in a party, tells everyone else so they can show it too. */
-	private void announce(EnticeStatus status, String overheadText)
+	private void announce(EnticeStatus status)
 	{
+		final String overheadText = ourTextFor(status);
 		if (config.showOwnOverheadText())
 		{
 			showOverheadTextOn(client.getLocalPlayer(), overheadText);
@@ -616,7 +617,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 
 	/**
 	 * Our own wording by default, so what appears on screen is what this client configured. Their
-	 * wording is only used when we opt in, and even then ours covers anything they left blank.
+	 * wording is only used when we opt in, and even then ours covers a line an older version sent blank.
 	 */
 	private String textFor(EnticeStatusMessage event, boolean weCast)
 	{
@@ -632,7 +633,7 @@ public class SoulflameHornAudioPlugin extends Plugin
 		// Somebody squandering a buff we handed them is its own moment, so it gets its own line.
 		if (weCast && event.getStatus() == EnticeStatus.WASTED)
 		{
-			return config.partyWastedOverheadText();
+			return orDefault(config.partyWastedOverheadText(), SoulflameHornAudioConfig.PARTY_WASTED_TEXT);
 		}
 
 		return ourTextFor(event.getStatus());
@@ -643,18 +644,24 @@ public class SoulflameHornAudioPlugin extends Plugin
 		switch (status)
 		{
 			case SENT:
-				return config.sentOverheadText();
+				return orDefault(config.sentOverheadText(), SoulflameHornAudioConfig.SENT_TEXT);
 			case MISSED:
-				return config.whiffOverheadText();
+				return orDefault(config.whiffOverheadText(), SoulflameHornAudioConfig.MISSED_TEXT);
 			case RECEIVED:
-				return config.appliedOverheadText();
+				return orDefault(config.appliedOverheadText(), SoulflameHornAudioConfig.RECEIVED_TEXT);
 			case SPENT:
-				return config.spentOverheadText();
+				return orDefault(config.spentOverheadText(), SoulflameHornAudioConfig.UTILIZED_TEXT);
 			case WASTED:
-				return config.wastedOverheadText();
+				return orDefault(config.wastedOverheadText(), SoulflameHornAudioConfig.WASTED_TEXT);
 			default:
 				return null;
 		}
+	}
+
+	// a line left blank shows its default rather than nothing
+	private static String orDefault(String line, String fallback)
+	{
+		return line == null || line.trim().isEmpty() ? fallback : line;
 	}
 
 	private boolean weCast(EnticeStatusMessage event)

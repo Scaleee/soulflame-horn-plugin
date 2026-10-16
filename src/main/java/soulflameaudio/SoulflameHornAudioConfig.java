@@ -20,6 +20,14 @@ public interface SoulflameHornAudioConfig extends Config
 	String FILE_DESCRIPTION = "Leave blank for the default sound. Otherwise the full path to a .wav or .mp3 file, or to a folder to play one at random. "
 		+ "A file name on its own is looked for in .runelite\\soulflamehornaudio.";
 
+	// The overhead lines, which a line left blank falls back to rather than showing nothing
+	String SENT_TEXT = "Horn up!";
+	String RECEIVED_TEXT = "Buffed!";
+	String UTILIZED_TEXT = "Used it!";
+	String MISSED_TEXT = "Nobody heard that...";
+	String WASTED_TEXT = "I wasted it!";
+	String PARTY_WASTED_TEXT = "Wasted your buff!";
+
 	@ConfigSection(
 		name = "General",
 		description = "Sound playback and which moments make a noise.",
@@ -360,72 +368,72 @@ public interface SoulflameHornAudioConfig extends Config
 	@ConfigItem(
 		keyName = "sentOverheadText",
 		name = "Player Sent Spec",
-		description = "Line shown when someone blows the horn and it reaches an ally. Leave blank for none.",
+		description = "Line shown when someone blows the horn and it reaches an ally. Leave blank for the default.",
 		section = overheadSection,
 		position = 3
 	)
 	default String sentOverheadText()
 	{
-		return "Horn up!";
+		return SENT_TEXT;
 	}
 	@ConfigItem(
 		keyName = "appliedOverheadText",
 		name = "Player Received Spec",
-		description = "Line shown when the Entice buff lands on someone. Leave blank for none.",
+		description = "Line shown when the Entice buff lands on someone. Leave blank for the default.",
 		section = overheadSection,
 		position = 4
 	)
 	default String appliedOverheadText()
 	{
-		return "Buffed!";
+		return RECEIVED_TEXT;
 	}
 
 	@ConfigItem(
 		keyName = "spentOverheadText",
 		name = "Player Utilized Spec",
-		description = "Line shown when the buff is cashed in on a hit. Leave blank for none.",
+		description = "Line shown when the buff is cashed in on a hit. Leave blank for the default.",
 		section = overheadSection,
 		position = 5
 	)
 	default String spentOverheadText()
 	{
-		return "Used it!";
+		return UTILIZED_TEXT;
 	}
 
 	@ConfigItem(
 		keyName = "whiffOverheadText",
 		name = "Player Missed Spec",
-		description = "Line shown when the horn is blown with nobody in range. Leave blank for none.",
+		description = "Line shown when the horn is blown with nobody in range. Leave blank for the default.",
 		section = overheadSection,
 		position = 6
 	)
 	default String whiffOverheadText()
 	{
-		return "Nobody heard that...";
+		return MISSED_TEXT;
 	}
 
 	@ConfigItem(
 		keyName = "wastedOverheadText",
 		name = "Player Wasted Spec",
-		description = "Line shown when the buff expires unused. Leave blank for none.",
+		description = "Line shown when the buff expires unused. Leave blank for the default.",
 		section = overheadSection,
 		position = 7
 	)
 	default String wastedOverheadText()
 	{
-		return "I wasted it!";
+		return WASTED_TEXT;
 	}
 
 	@ConfigItem(
 		keyName = "partyWastedOverheadText",
 		name = "Party Wasted Spec",
-		description = "Line shown above a party member who wasted a buff you gave them. Leave blank for none.",
+		description = "Line shown above a party member who wasted a buff you gave them. Leave blank for the default.",
 		section = overheadSection,
 		position = 8
 	)
 	default String partyWastedOverheadText()
 	{
-		return "Wasted your buff!";
+		return PARTY_WASTED_TEXT;
 	}
 
 	// Party
