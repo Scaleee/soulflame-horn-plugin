@@ -11,16 +11,18 @@ import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import javazoom.jl.decoder.Bitstream;
-import javazoom.jl.decoder.Decoder;
-import javazoom.jl.decoder.Header;
-import javazoom.jl.decoder.JavaLayerException;
-import javazoom.jl.decoder.SampleBuffer;
+import jaco.mp3.resources.BitstreamException;
+import jaco.mp3.resources.Decoder;
+import jaco.mp3.resources.DecoderException;
+import jaco.mp3.resources.Frame;
+import jaco.mp3.resources.SampleBuffer;
+import jaco.mp3.resources.SoundStream;
 
 /**
  * RuneLite's audio player only reads what java.sound decodes, which excludes mp3, and the plugin hub
- * does not let plugins use java.sound themselves. So an mp3 is decoded once with JLayer's decoder,
- * which is plain Java, into a 16-bit PCM .wav that the player can read, and kept for next time.
+ * does not let plugins use java.sound themselves. So an mp3 is decoded once with the decoder in
+ * RuneLite's jaco-mp3-player, which is JLayer's in plain Java, into a 16-bit PCM .wav that the player
+ * can read, and kept for next time.
  */
 final class Mp3ToWav
 {
@@ -89,14 +91,14 @@ final class Mp3ToWav
 			// Filled in once the sizes are known.
 			out.write(new byte[WAV_HEADER_BYTES]);
 
-			final Bitstream bitstream = new Bitstream(in);
+			final SoundStream stream = new SoundStream(in);
 			final Decoder decoder = new Decoder();
 			byte[] bytes = null;
 			try
 			{
-				for (Header frame = bitstream.readFrame(); frame != null; frame = bitstream.readFrame())
+				for (Frame frame = stream.readFrame(); frame != null; frame = stream.readFrame())
 				{
-					final SampleBuffer samples = (SampleBuffer) decoder.decodeFrame(frame, bitstream);
+					final SampleBuffer samples = (SampleBuffer) decoder.decodeFrame(frame, stream);
 					if (sampleRate == 0)
 					{
 						sampleRate = samples.getSampleFrequency();
@@ -119,10 +121,10 @@ final class Mp3ToWav
 					out.write(bytes, 0, count * 2);
 					dataBytes += count * 2L;
 
-					bitstream.closeFrame();
+					stream.closeFrame();
 				}
 			}
-			catch (JavaLayerException e)
+			catch (BitstreamException | DecoderException e)
 			{
 				throw new IOException("Could not decode " + mp3, e);
 			}
